@@ -1,113 +1,49 @@
-import { ChildControllerContext } from './ComposableController';
+// eslint-disable-next-line import/named
+import { Draft, produce } from 'immer';
 
 /**
  * State change callbacks
  */
 export type Listener<T> = (state: T) => void;
 
-/**
- * @type BaseConfig
- *
- * Base controller configuration
- *
- * @property disabled - Determines if this controller is enabled
- */
-export interface BaseConfig {
-  disabled?: boolean;
+type Anonymizer<T> = (value: T) => T;
+
+export type Schema<T> = {
+  [P in keyof T]: {
+    persist: boolean;
+    anonymous: boolean | Anonymizer<T[P]>;
+  }
+};
+
+function isAnonymizingFunction<T>(x: boolean | Anonymizer<T>): x is Anonymizer<T> {
+  return typeof x === 'function';
 }
 
 /**
- * @type BaseState
- *
- * Base state representation
- *
- * @property name - Unique name for this controller
+ * Controller class that provides state management and subscriptions
  */
-export interface BaseState {
-  name?: string;
-}
-
-/**
- * Controller class that provides configuration, state management, and subscriptions
- */
-export class BaseController<C extends BaseConfig, S extends BaseState> {
-  /**
-   * Map of all sibling child controllers keyed by name if this
-   * controller is composed using a ComposableController, allowing
-   * any API on any sibling controller to be accessed
-   */
-  context: ChildControllerContext = {};
-
-  /**
-   * Default options used to configure this controller
-   */
-  defaultConfig: C = {} as C;
-
+export class BaseController<S extends Record<string, any>> {
   /**
    * Default state set on this controller
    */
-  defaultState: S = {} as S;
 
-  /**
-   * Determines if listeners are notified of state changes
-   */
-  disabled = false;
-
-  /**
-   * Name of this controller used during composition
-   */
-  name = 'BaseController';
-
-  /**
-   * List of required sibling controllers this controller needs to function
-   */
-  requiredControllers: string[] = [];
-
-  private readonly initialConfig: C;
-
-  private readonly initialState: S;
-
-  private internalConfig: C = this.defaultConfig;
-
-  private internalState: S = this.defaultState;
+  private internalState: S;
 
   private internalListeners: Listener<S>[] = [];
 
+  private schema: Schema<S>;
+
   /**
-   * Creates a BaseController instance. Both initial state and initial
-   * configuration options are merged with defaults upon initialization.
+   * Creates a BaseController instance. The initial state is merged with
+   * defaults upon initialization.
    *
-   * @param config - Initial options used to configure this controller
    * @param state - Initial state to set on this controller
+   * @param persistanceSchema - TODO
+   * @param anonymizedSchema - TODO
    */
-  constructor(config: Partial<C> = {} as C, state: Partial<S> = {} as S) {
-    // Use assign since generics can't be spread: https://git.io/vpRhY
-    this.initialState = state as S;
-    this.initialConfig = config as C;
-  }
-
-  /**
-   * Enables the controller. This sets each config option as a member
-   * variable on this instance and triggers any defined setters. This
-   * also sets initial state and triggers any listeners.
-   *
-   * @returns - This controller instance
-   */
-  protected initialize() {
-    this.internalState = this.defaultState;
-    this.internalConfig = this.defaultConfig;
-    this.configure(this.initialConfig);
-    this.update(this.initialState);
-    return this;
-  }
-
-  /**
-   * Retrieves current controller configuration options
-   *
-   * @returns - Current configuration
-   */
-  get config() {
-    return this.internalConfig;
+  constructor(state: S, schema: Schema<S>) {
+    this.internalState = state;
+    this.schema = schema;
   }
 
   /**
@@ -119,55 +55,35 @@ export class BaseController<C extends BaseConfig, S extends BaseState> {
     return this.internalState;
   }
 
-  /**
-   * Updates controller configuration
-   *
-   * @param config - New configuration options
-   * @param overwrite - Overwrite config instead of merging
-   * @param fullUpdate - Boolean that defines if the update is partial or not
-   */
-  configure(config: Partial<C>, overwrite = false, fullUpdate = true) {
-    if (fullUpdate) {
-      this.internalConfig = overwrite ? (config as C) : Object.assign(this.internalConfig, config);
-
-      for (const key in this.internalConfig) {
-        if (typeof this.internalConfig[key] !== 'undefined') {
-          (this as any)[key as string] = this.internalConfig[key];
-        }
-      }
-    } else {
-      for (const key in config) {
-        /* istanbul ignore else */
-        if (typeof this.internalConfig[key] !== 'undefined') {
-          this.internalConfig[key] = config[key] as any;
-          (this as any)[key as string] = config[key];
-        }
-      }
-    }
+  getPersistedState() {
+    return Object.keys(this.state)
+      .reduce(
+        (persistedState, _key) => {
+          const key: keyof S = _key; // https://stackoverflow.com/questions/63893394/string-cannot-be-used-to-index-type-t
+          if (this.schema[key].persist) {
+            persistedState[key] = this.state[key];
+          }
+          return persistedState;
+        },
+        {} as Partial<S>,
+      );
   }
 
-  /**
-   * Notifies all subscribed listeners of current state
-   */
-  notify() {
-    if (this.disabled) {
-      return;
-    }
-    this.internalListeners.forEach((listener) => {
-      listener(this.internalState);
-    });
-  }
-
-  /**
-   * Extension point called if and when this controller is composed
-   * with other controllers using a ComposableController
-   */
-  onComposed() {
-    this.requiredControllers.forEach((name) => {
-      if (!this.context[name]) {
-        throw new Error(`${this.name} must be composed with ${name}.`);
-      }
-    });
+  getAnonymizedState() {
+    return Object.keys(this.state)
+      .reduce(
+        (anonymizedState, _key) => {
+          const key: keyof S = _key; // https://stackoverflow.com/questions/63893394/string-cannot-be-used-to-index-type-t
+          const schemaValue = this.schema[key].anonymous;
+          if (isAnonymizingFunction(schemaValue)) {
+            anonymizedState[key] = schemaValue(this.state[key]);
+          } else if (schemaValue) {
+            anonymizedState[key] = this.state[key];
+          }
+          return anonymizedState;
+        },
+        {} as Partial<S>,
+      );
   }
 
   /**
@@ -194,12 +110,17 @@ export class BaseController<C extends BaseConfig, S extends BaseState> {
   /**
    * Updates controller state
    *
-   * @param state - New state
-   * @param overwrite - Overwrite state instead of merging
+   * @param callback - New state
    */
-  update(state: Partial<S>, overwrite = false) {
-    this.internalState = overwrite ? Object.assign({}, state as S) : Object.assign({}, this.internalState, state);
-    this.notify();
+  protected update(callback: (state: Draft<S>) => void | S) {
+    this.internalState = produce(this.internalState, callback) as S;
+  }
+
+  /**
+   *
+   */
+  protected destroy() {
+    this.internalListeners = [];
   }
 }
 

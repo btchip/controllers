@@ -3551,6 +3551,11 @@ immediate@^3.2.3:
   resolved "https://registry.yarnpkg.com/immediate/-/immediate-3.2.3.tgz#d140fa8f614659bd6541233097ddaac25cdd991c"
   integrity sha1-0UD6j2FGWb1lQSMwl92qwlzdmRw=
 
+immer@^7.0.9:
+  version "7.0.9"
+  resolved "https://registry.yarnpkg.com/immer/-/immer-7.0.9.tgz#28e7552c21d39dd76feccd2b800b7bc86ee4a62e"
+  integrity sha512-Vs/gxoM4DqNAYR7pugIxi0Xc8XAun/uy7AQu4fLLqaTBHxjOP9pJ266Q9MWA/ly4z6rAFZbvViOtihxUZ7O28A==
+
 import-fresh@^3.0.0:
   version "3.2.1"
   resolved "https://registry.yarnpkg.com/import-fresh/-/import-fresh-3.2.1.tgz#633ff618506e793af5ac91bf48b72677e15cbe66"
@@ -5546,11 +5551,6 @@ pbkdf2@^3.0.3, pbkdf2@^3.0.9:
     ripemd160 "^2.0.1"
     safe-buffer "^5.0.1"
     sha.js "^2.4.8"
-
-percentile@^1.2.1:
-  version "1.2.2"
-  resolved "https://registry.yarnpkg.com/percentile/-/percentile-1.2.2.tgz#8966abc4bb36aaacaee91405f17095d9c881d1cb"
-  integrity sha512-yb/W/Y3WNxEZ6/P75qkAvE3lu81AO1qDk95j7jPJg4Vj+wDWSDs0CMLVGoAUCOZbXOUOz3b3rWWR6Bf1hyzNJg==
 
 performance-now@^2.1.0:
   version "2.1.0"
