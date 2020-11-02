@@ -22,7 +22,7 @@ export enum SwapsError {
 }
 
 export interface SwapsState extends BaseState {
-  quotes: {[key: string]: Record<string, any>};
+  quotes: { [key: string]: Record<string, any> };
   fetchParams: null | Record<string, any>;
   tokens: null | SwapsTokenObject[];
   quotesLastFetched: null | Date;
@@ -43,11 +43,11 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
   requiredControllers = ['NetworkController', 'TokenRatesController'];
 
   /**
-  * Creates a SwapsController instance
-  *
-  * @param config - Initial options used to configure this controller
-  * @param state - Initial state to set on this controller
-  */
+   * Creates a SwapsController instance
+   *
+   * @param config - Initial options used to configure this controller
+   * @param state - Initial state to set on this controller
+   */
   constructor(config?: Partial<SwapsConfig>, state?: Partial<SwapsState>) {
     super(config, state);
     this.defaultConfig = {

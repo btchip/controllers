@@ -1,7 +1,6 @@
 import SwapsController from '../src/swaps/SwapsController';
 
 describe('SwapsController', () => {
-
   it('should set default config', () => {
     const controller = new SwapsController();
     expect(controller.config).toEqual({
