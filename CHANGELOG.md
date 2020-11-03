@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [3.3.0] - 2020-11-03
+
+### Added
+
+- Add `ApprovalController` ([#289](https://github.com/MetaMask/controllers/pull/289))
+
 ## [3.2.0] - 2020-10-21
 
 ### Added
@@ -77,7 +83,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Remove shapeshift controller (#209)
 
-[Unreleased]:https://github.com/MetaMask/controllers/compare/v3.2.0...HEAD
+[Unreleased]:https://github.com/MetaMask/controllers/compare/v3.3.0...HEAD
+[3.3.0]:https://github.com/MetaMask/controllers/compare/v3.2.0...v3.3.0
 [3.2.0]:https://github.com/MetaMask/controllers/compare/v3.1.0...v3.2.0
 [3.1.0]:https://github.com/MetaMask/controllers/compare/v3.0.1...v3.1.0
 [3.0.1]:https://github.com/MetaMask/controllers/compare/v3.0.0...v3.0.1
