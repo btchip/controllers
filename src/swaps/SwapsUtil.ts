@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+import { BN } from 'ethereumjs-util';
 import { handleFetch, timeoutFetch, constructTxParams, BNToHex } from '../util';
 
 export enum SwapsError {
@@ -294,3 +296,28 @@ export async function fetchTokenPrice(address: string): Promise<string> {
 //   const upperIndex = values.length / 2
 //   return values[upperIndex].plus(values[upperIndex - 1]).dividedBy(2)
 // }
+
+/**
+ * Calculates the median of a sample of BigNumber values.
+ *
+ * @param {BN[]} values - A sample of BigNumber values.
+ * @returns {BN} The median of the sample.
+ */
+export function getMedian(values: BigNumber[]) {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new Error('Expected non-empty array param.');
+  }
+  const sorted = [...values].sort((a, b) => {
+    if (a.eq(b)) {
+      return 0;
+    }
+    return a.lt(b) ? -1 : 1;
+  });
+  if (sorted.length % 2 === 1) {
+    // return middle value
+    return sorted[(sorted.length - 1) / 2];
+  }
+  // return mean of middle two values
+  const upperIndex = sorted.length / 2;
+  return sorted[upperIndex].add(sorted[upperIndex - 1]).divn(2);
+}

@@ -1,9 +1,15 @@
 import BaseController, { BaseConfig, BaseState } from '../BaseController';
-import { SwapsError } from './SwapsUtil';
+import { getMedian, SwapsError } from './SwapsUtil';
 import NetworkController from '../network/NetworkController';
+import TokenRatesController from '../assets/TokenRatesController';
+import BigNumber from 'bignumber.js'
+import { calcTokenAmount } from '../util';
+
 const EthQuery = require('eth-query');
 
 const METASWAP_ADDRESS = '0x881d40237659c251811cec9c364ef91dc08d300c';
+// An address that the metaswap-api recognizes as ETH, in place of the token address that ERC-20 tokens have
+export const ETH_SWAPS_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 export interface SwapsTokenObject {
   address: string;
@@ -23,6 +29,18 @@ interface SwapsQuotes {
   [key: string]: Record<string, any>
 }
 
+interface SwapsSavings {
+  total: BigNumber;
+  performance: BigNumber;
+  fee: BigNumber;
+}
+
+interface SwapsBestQuote {
+  topAggId: string;
+  ethTradeValueOfBestQuote: BigNumber;
+  ethFeeForBestQuote: BigNumber;
+}
+
 export interface SwapsState extends BaseState {
   quotes: SwapsQuotes;
   fetchParams: null | Record<string, any>;
@@ -34,6 +52,8 @@ export interface SwapsState extends BaseState {
 }
 
 const QUOTE_POLLING_INTERVAL = 50 * 1000
+// The MAX_GAS_LIMIT is a number that is higher than the maximum gas costs we have observed on any aggregator
+const MAX_GAS_LIMIT = 2500000
 
 export default class SwapsController extends BaseController<SwapsConfig, SwapsState> {
   private handle?: NodeJS.Timer;
@@ -45,10 +65,86 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
    * 
    * @returns - Promise resolving to the current gas price
    */
-  // private async getGasPrice (): Promise<string> {
-  //   const gasPrice = await this.query('gasPrice')
-  //   return gasPrice.toHexString()
-  // }
+  private async getGasPrice (): Promise<string> {
+    const gasPrice = await this.query('gasPrice')
+    return gasPrice.toHexString()
+  }
+
+  private async getBestQuote (quotes: SwapsQuotes, customGasPrice: string): Promise<SwapsBestQuote> {
+    const tokenRatesController = this.context.TokenRatesController as TokenRatesController;
+    const contractExchangeRates = tokenRatesController.state.contractExchangeRates
+    
+    const allEthTradeValues: BigNumber[] = []
+    const allEthFees: BigNumber[] = []
+
+    let topAggId: string = ''
+    let ethTradeValueOfBestQuote: BigNumber = new BigNumber(0)
+    let ethFeeForBestQuote: BigNumber = new BigNumber(0)
+
+    const usedGasPrice = customGasPrice || (await this.getGasPrice())
+
+    Object.values(quotes).forEach((quote) => {
+      const {
+        aggregator,
+        approvalNeeded,
+        averageGas,
+        destinationAmount = 0,
+        destinationToken,
+        destinationTokenInfo,
+        gasEstimate,
+        sourceAmount,
+        sourceToken,
+        trade,
+      } = quote
+
+      const tradeGasLimitForCalculation = gasEstimate
+        ? new BigNumber(gasEstimate, 16)
+        : new BigNumber(averageGas || MAX_GAS_LIMIT, 10)
+
+      const totalGasLimitForCalculation = tradeGasLimitForCalculation
+        .plus(approvalNeeded?.gas || '0x0', 16)
+        .toString(16)
+
+      const gasTotalInWeiHex = new BigNumber(totalGasLimitForCalculation, 16).times(new BigNumber(usedGasPrice, 16))
+
+      // trade.value is a sum of different values depending on the transaction.
+      // It always includes any external fees charged by the quote source. In
+      // addition, if the source asset is ETH, trade.value includes the amount
+      // of swapped ETH.
+      const totalWeiCost = new BigNumber(gasTotalInWeiHex, 16).plus(trade.value, 16)
+
+      // The total fee is aggregator/exchange fees plus gas fees.
+      // If the swap is from ETH, subtract the sourceAmount from the total cost.
+      // Otherwise, the total fee is simply trade.value plus gas fees.
+      const ethFee = sourceToken === ETH_SWAPS_TOKEN_ADDRESS ? totalWeiCost.minus(sourceAmount, 10) : totalWeiCost
+
+      const tokenConversionRate = contractExchangeRates[destinationToken]
+      const ethValueOfTrade =
+        destinationToken === ETH_SWAPS_TOKEN_ADDRESS
+          ? calcTokenAmount(destinationAmount, 18).minus(totalWeiCost, 10)
+          : new BigNumber(tokenConversionRate || 1, 10)
+              .times(
+                calcTokenAmount(
+                  destinationAmount,
+                  destinationTokenInfo.decimals,
+                ),
+                10,
+              )
+              .minus(tokenConversionRate ? totalWeiCost : 0, 10)
+
+      // collect values for savings calculation
+      allEthTradeValues.push(ethValueOfTrade)
+      allEthFees.push(ethFee)
+
+      if (ethValueOfTrade.gt(ethTradeValueOfBestQuote)) {
+        topAggId = aggregator
+        ethTradeValueOfBestQuote = ethValueOfTrade
+        ethFeeForBestQuote = ethFee
+      }
+    })
+
+    return {topAggId, ethTradeValueOfBestQuote, ethFeeForBestQuote}
+  }
 
   /**
    * Find best quote and savings from specific quotes
@@ -56,9 +152,46 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
    * @param quotes - Quotes to do the calculation
    * @returns - Promise resolving to an object containing best aggregator id and respective savings
    */
-  // private async findTopQuoteAndCalculateSavings (quotes: SwapsQuotes): Promise<Object> {
-  //   return {topAggId: '', isBest: true, savings: {}}
-  // }
+  private async findTopQuoteAndCalculateSavings (quotes: SwapsQuotes, customGasPrice: string): Promise<Object> {
+    const tokenRatesController = this.context.TokenRatesController as TokenRatesController;
+    const contractExchangeRates = tokenRatesController.state.contractExchangeRates
+
+    const numQuotes = Object.keys(quotes).length
+    if (!numQuotes) {
+      return {}
+    }
+
+    const bestQuote = await this.getBestQuote(quotes, customGasPrice)
+
+    const allEthTradeValues: BigNumber[] = []
+    const allEthFees: BigNumber[] = []
+
+    const isBest =
+      quotes[bestQuote.topAggId].destinationToken === ETH_SWAPS_TOKEN_ADDRESS ||
+      Boolean(contractExchangeRates[quotes[bestQuote.topAggId]?.destinationToken])
+
+
+    const savings: SwapsSavings = {fee: new BigNumber(0), total: new BigNumber(0), performance: new BigNumber(0)}
+
+    if (isBest) {
+      // Performance savings are calculated as:
+      //   valueForBestTrade - medianValueOfAllTrades
+      savings.performance = bestQuote.ethTradeValueOfBestQuote.minus(
+        getMedian(allEthTradeValues),
+        10,
+      )
+
+      // Performance savings are calculated as:
+      //   medianFeeOfAllTrades - feeForBestTrade
+      savings.fee = getMedian(allEthFees).minus(bestQuote.ethFeeForBestQuote, 10)
+
+      // Total savings are the sum of performance and fee savings
+      savings.total = savings.performance.plus(savings.fee, 10)
+      savings.performance = savings.performance
+    }
+
+    return {topAggId: bestQuote.topAggId, isBest, savings}
+  }
 
   /**
    * Get current allowance for a wallet address to access ERC20 contract address funds
@@ -174,7 +307,7 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
     this.handle && clearTimeout(this.handle)
   }
 
-  async fetchAndSetQuotes (fetchParams: null | Record<string, any>, fetchParamsMetaData: Object, isPolledRequest: boolean) {
+  async fetchAndSetQuotes (fetchParams: null | Record<string, any>, fetchParamsMetaData: Object, isPolledRequest: boolean, customGasPrice?: string) {
     if (!fetchParams) {
       return null
     }

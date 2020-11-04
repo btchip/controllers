@@ -4,6 +4,7 @@ import { MessageParams } from './message-manager/MessageManager';
 import { PersonalMessageParams } from './message-manager/PersonalMessageManager';
 import { TypedMessageParams } from './message-manager/TypedMessageManager';
 import { Token } from './assets/TokenRatesController';
+import BigNumber from 'bignumber.js';
 
 const sigUtil = require('eth-sig-util');
 const jsonschema = require('jsonschema');
@@ -484,6 +485,11 @@ export function normalizeEnsName(ensName: string): string | null {
   return null;
 }
 
+export function calcTokenAmount(value: number, decimals: number) {
+  const multiplier = Math.pow(10, Number(decimals || 0))
+  return new BigNumber(String(value)).div(multiplier)
+}
+
 export default {
   BNToHex,
   fractionBN,
@@ -501,4 +507,5 @@ export default {
   validateTransaction,
   validateTypedSignMessageDataV1,
   validateTypedSignMessageDataV3,
+  calcTokenAmount
 };
