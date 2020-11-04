@@ -1,3 +1,4 @@
+import { BN } from 'ethereumjs-util';
 import * as swapsUtil from '../src/swaps/SwapsUtil';
 
 describe('SwapsUtil', () => {
@@ -82,13 +83,33 @@ describe('SwapsUtil', () => {
     it.todo('should work');
   });
 
-  describe('formatSwapsValueForDisplay', () => {
-    it.todo('should work');
-  });
   describe('calculateGasEstimateWithRefund', () => {
-    it.todo('should work');
+    test.each`
+      maxGas       | estimatedRefund | estimatedGas | expected
+      ${0}         | ${0}            | ${0}         | ${'0'}
+      ${undefined} | ${2_000_000}    | ${501_000}   | ${'500000'}
+      ${3}         | ${2}            | ${1}         | ${'1'}
+      ${3}         | ${3}            | ${1}         | ${'0'}
+      ${10}        | ${5}            | ${6}         | ${'5'}
+    `('should return expected value', ({ maxGas, estimatedRefund, estimatedGas, expected }) => {
+      const estimated = swapsUtil.calculateGasEstimateWithRefund(maxGas, estimatedRefund, estimatedGas);
+      expect(estimated).toBeInstanceOf(BN);
+      expect(estimated.toString(10)).toBe(expected);
+    });
   });
+
   describe('getMedian', () => {
-    it.todo('should work');
+    const numbers = [...Array(9).keys()].map((i) => new BN((i + 1) * 100));
+    it('returns the middle value', () => {
+      const middleValue = swapsUtil.getMedian(numbers);
+      expect(middleValue).toBeInstanceOf(BN);
+      expect(middleValue.toString(10)).toBe('500');
+    });
+
+    it('returns the median value', () => {
+      const medianValue = swapsUtil.getMedian([...numbers, new BN(1000)]);
+      expect(medianValue).toBeInstanceOf(BN);
+      expect(medianValue.toString(10)).toEqual('550');
+    });
   });
 });

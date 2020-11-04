@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import { BN } from 'ethereumjs-util';
 import { handleFetch, timeoutFetch, constructTxParams, BNToHex } from '../util';
 
 export enum SwapsError {
@@ -94,6 +93,9 @@ export const ETH_SWAPS_TOKEN_OBJECT: APIToken = {
 
 export const DEFAULT_ERC20_APPROVE_GAS = '0x1d4c0';
 
+// The MAX_GAS_LIMIT is a number that is higher than the maximum gas costs we have observed on any aggregator
+const MAX_GAS_LIMIT = 2500000;
+
 export const SWAPS_CONTRACT_ADDRESS = '0x881d40237659c251811cec9c364ef91dc08d300c';
 
 // Functions
@@ -144,9 +146,7 @@ export async function fetchTradesInfo({
   }
 
   const tradeURL = `${getBaseApiURL(APIType.TRADES)}?${new URLSearchParams(urlParams as Record<any, any>).toString()}`;
-  const tradesResponse = ((await (
-    await timeoutFetch(tradeURL, { method: 'GET' }, 15000)
-  ).json()) as unknown) as APITrade[];
+  const tradesResponse = (await timeoutFetch(tradeURL, { method: 'GET' }, 15000)) as APITrade[];
 
   const newQuotes = tradesResponse.reduce((aggIdTradeMap: Record<string, APITrade>, quote: APITrade) => {
     if (quote.trade && !quote.error) {
@@ -297,6 +297,13 @@ export async function fetchTokenPrice(address: string): Promise<string> {
 //   return values[upperIndex].plus(values[upperIndex - 1]).dividedBy(2)
 // }
 
+export function calculateGasEstimateWithRefund(maxGas = MAX_GAS_LIMIT, estimatedRefund = 0, estimatedGas = 0): BN {
+  const maxGasMinusRefund = new BigNumber(maxGas, 10).minus(estimatedRefund);
+  const estimatedGasBN = new BigNumber(estimatedGas);
+  const gasEstimateWithRefund = maxGasMinusRefund.lt(estimatedGasBN) ? maxGasMinusRefund : estimatedGasBN;
+  return gasEstimateWithRefund;
+}
+
 /**
  * Calculates the median of a sample of BigNumber values.
  *
@@ -313,11 +320,12 @@ export function getMedian(values: BigNumber[]) {
     }
     return a.lt(b) ? -1 : 1;
   });
+
   if (sorted.length % 2 === 1) {
     // return middle value
     return sorted[(sorted.length - 1) / 2];
   }
   // return mean of middle two values
   const upperIndex = sorted.length / 2;
-  return sorted[upperIndex].add(sorted[upperIndex - 1]).divn(2);
+  return sorted[upperIndex].plus(sorted[upperIndex - 1]).divn(2);
 }
