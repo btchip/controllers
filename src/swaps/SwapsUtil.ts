@@ -1,3 +1,4 @@
+import { BN } from 'ethereumjs-util';
 import { handleFetch, timeoutFetch, constructTxParams, BNToHex } from '../util';
 
 export enum SwapsError {
@@ -92,6 +93,9 @@ export const ETH_SWAPS_TOKEN_OBJECT: APIToken = {
 
 export const DEFAULT_ERC20_APPROVE_GAS = '0x1d4c0';
 
+// The MAX_GAS_LIMIT is a number that is higher than the maximum gas costs we have observed on any aggregator
+const MAX_GAS_LIMIT = 2500000;
+
 export const SWAPS_CONTRACT_ADDRESS = '0x881d40237659c251811cec9c364ef91dc08d300c';
 
 // Functions
@@ -142,9 +146,7 @@ export async function fetchTradesInfo({
   }
 
   const tradeURL = `${getBaseApiURL(APIType.TRADES)}?${new URLSearchParams(urlParams as Record<any, any>).toString()}`;
-  const tradesResponse = ((await (
-    await timeoutFetch(tradeURL, { method: 'GET' }, 15000)
-  ).json()) as unknown) as APITrade[];
+  const tradesResponse = (await timeoutFetch(tradeURL, { method: 'GET' }, 15000)) as APITrade[];
 
   const newQuotes = tradesResponse.reduce((aggIdTradeMap: Record<string, APITrade>, quote: APITrade) => {
     if (quote.trade && !quote.error) {
@@ -250,47 +252,36 @@ export async function fetchTokenPrice(address: string): Promise<string> {
 //   approvalTxMeta,
 // ) {}
 
-// export function formatSwapsValueForDisplay(destinationAmount) {}
+export function calculateGasEstimateWithRefund(maxGas = MAX_GAS_LIMIT, estimatedRefund = 0, estimatedGas = 0): BN {
+  const maxGasMinusRefund = new BN(maxGas, 10).subn(estimatedRefund);
+  const estimatedGasBN = new BN(estimatedGas);
+  const gasEstimateWithRefund = maxGasMinusRefund.lt(estimatedGasBN) ? maxGasMinusRefund : estimatedGasBN;
+  return gasEstimateWithRefund;
+}
 
-// function calculateGasEstimateWithRefund(
-//   maxGas = MAX_GAS_LIMIT,
-//   estimatedRefund = 0,
-//   estimatedGas = 0,
-// ) {
-//   const maxGasMinusRefund = new BigNumber(maxGas, 10).minus(estimatedRefund, 10)
+/**
+ * Calculates the median of a sample of BigNumber values.
+ *
+ * @param {BN[]} values - A sample of BigNumber values.
+ * @returns {BN} The median of the sample.
+ */
+export function getMedian(values: BN[]) {
+  if (!Array.isArray(values) || values.length === 0) {
+    throw new Error('Expected non-empty array param.');
+  }
+  const sorted = [...values].sort((a, b) => {
+    if (a.eq(b)) {
+      return 0;
+    }
+    return a.lt(b) ? -1 : 1;
+  });
 
-//   const gasEstimateWithRefund = maxGasMinusRefund.lt(estimatedGas, 16)
-//     ? maxGasMinusRefund.toString(16)
-//     : estimatedGas
+  if (sorted.length % 2 === 1) {
+    // return middle value
+    return sorted[(sorted.length - 1) / 2];
+  }
 
-//   return gasEstimateWithRefund
-// }
-
-// /**
-//  * Calculates the median of a sample of BigNumber values.
-//  *
-//  * @param {import('bignumber.js').BigNumber[]} values - A sample of BigNumber
-//  * values. The array will be sorted in place.
-//  * @returns {import('bignumber.js').BigNumber} The median of the sample.
-//  */
-// export function getMedian(values) {
-//   if (!Array.isArray(values) || values.length === 0) {
-//     throw new Error('Expected non-empty array param.')
-//   }
-
-//   values.sort((a, b) => {
-//     if (a.equals(b)) {
-//       return 0
-//     }
-//     return a.lessThan(b) ? -1 : 1
-//   })
-
-//   if (values.length % 2 === 1) {
-//     // return middle value
-//     return values[(values.length - 1) / 2]
-//   }
-
-//   // return mean of middle two values
-//   const upperIndex = values.length / 2
-//   return values[upperIndex].plus(values[upperIndex - 1]).dividedBy(2)
-// }
+  // return mean of middle two values
+  const upperIndex = sorted.length / 2;
+  return sorted[upperIndex].add(sorted[upperIndex - 1]).divn(2);
+}

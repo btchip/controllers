@@ -553,8 +553,7 @@ describe('util', () => {
     });
 
     it('should fetch first if response is faster than timeout', async () => {
-      const res = await util.timeoutFetch(SOME_API);
-      const parsed = await res.json();
+      const parsed = await util.timeoutFetch(SOME_API);
       expect(parsed).toEqual({});
     });
 

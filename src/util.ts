@@ -437,6 +437,7 @@ export async function successfulFetch(request: string, options?: RequestInit) {
 export async function handleFetch(request: string, options?: RequestInit) {
   const response = await successfulFetch(request, options);
   const object = await response.json();
+
   return object;
 }
 
@@ -449,10 +450,10 @@ export async function handleFetch(request: string, options?: RequestInit) {
  *
  * @returns - Promise resolving the request
  */
-export async function timeoutFetch(url: string, options?: RequestInit, timeout = 500): Promise<Response> {
+export async function timeoutFetch(url: string, options?: RequestInit, timeout = 500): Promise<any> {
   return Promise.race([
-    successfulFetch(url, options),
-    new Promise<Response>((_, reject) =>
+    handleFetch(url, options),
+    new Promise<void>((_, reject) =>
       setTimeout(() => {
         reject(new Error('timeout'));
       }, timeout),
