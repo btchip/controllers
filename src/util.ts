@@ -178,6 +178,51 @@ export function hexToText(hex: string) {
 }
 
 /**
+ * Given the standard set of information about a transaction, returns a transaction properly formatted for
+ * publishing via JSON RPC and web3
+ *
+ * @param {boolean} [sendToken] - Indicates whether or not the transaciton is a token transaction
+ * @param {string} data - A hex string containing the data to include in the transaction
+ * @param {string} to - A hex address of the tx recipient address
+ * @param {string} amount - A hex amount, in case of a token tranaction will be set to Tx value
+ * @param {string} from - A hex address of the tx sender address
+ * @param {string} gas - A hex representation of the gas value for the transaction
+ * @param {string} gasPrice - A hex representation of the gas price for the transaction
+ * @returns {object} An object ready for submission to the blockchain, with all values appropriately hex prefixed
+ */
+export function constructTxParams({
+  sendToken,
+  data,
+  to,
+  amount,
+  from,
+  gas,
+  gasPrice,
+}: {
+  sendToken?: boolean;
+  data?: string;
+  to: string;
+  from: string;
+  gas?: string;
+  gasPrice?: string;
+  amount?: string;
+}): any {
+  const txParams: Transaction = {
+    data,
+    from,
+    value: '0',
+    gas,
+    gasPrice,
+  };
+
+  if (!sendToken) {
+    txParams.value = amount;
+    txParams.to = to;
+  }
+  return normalizeTransaction(txParams);
+}
+
+/**
  * Normalizes properties on a Transaction object
  *
  * @param transaction - Transaction object to normalize
@@ -447,6 +492,7 @@ export default {
   hexToBN,
   hexToText,
   isSmartContractCode,
+  constructTxParams,
   normalizeTransaction,
   safelyExecute,
   successfulFetch,

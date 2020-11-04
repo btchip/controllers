@@ -1,4 +1,5 @@
 import BaseController, { BaseConfig, BaseState } from '../BaseController';
+import { SwapsError } from './SwapsUtil';
 
 const METASWAP_ADDRESS = '0x881d40237659c251811cec9c364ef91dc08d300c';
 
@@ -14,11 +15,6 @@ export interface SwapsConfig extends BaseConfig {
   maxGasLimit: number;
   pollCountLimit: number;
   metaSwapAddress: string;
-}
-
-export enum SwapsError {
-  QUOTES_EXPIRED_ERROR = 'QUOTES_EXPIRED_ERROR',
-  QUOTES_NOT_AVAILABLE_ERROR = 'QUOTES_NOT_AVAILABLE_ERROR',
 }
 
 interface SwapsQuotes {
