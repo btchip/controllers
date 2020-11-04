@@ -1,5 +1,7 @@
 import BaseController, { BaseConfig, BaseState } from '../BaseController';
 import { SwapsError } from './SwapsUtil';
+import NetworkController from '../network/NetworkController';
+const EthQuery = require('eth-query');
 
 const METASWAP_ADDRESS = '0x881d40237659c251811cec9c364ef91dc08d300c';
 
@@ -35,6 +37,7 @@ const QUOTE_POLLING_INTERVAL = 50 * 1000
 
 export default class SwapsController extends BaseController<SwapsConfig, SwapsState> {
   private handle?: NodeJS.Timer;
+  private ethQuery: any;
   // private pollCount?: number;
 
   /**
@@ -42,8 +45,9 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
    * 
    * @returns - Promise resolving to the current gas price
    */
-  // private async getEthersGasPrice (): Promise<string> {
-  //   return ''
+  // private async getGasPrice (): Promise<string> {
+  //   const gasPrice = await this.query('gasPrice')
+  //   return gasPrice.toHexString()
   // }
 
   /**
@@ -53,7 +57,6 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
    * @returns - Promise resolving to an object containing best aggregator id and respective savings
    */
   // private async findTopQuoteAndCalculateSavings (quotes: SwapsQuotes): Promise<Object> {
-  //   Object.keys(quotes)
   //   return {topAggId: '', isBest: true, savings: {}}
   // }
 
@@ -67,6 +70,18 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
   // private async getERC20Allowance (_contractAddress: string, _walletAddress: string): Promise<number> {
   //   return 0
   // }
+
+  private query(method: string, args: any[] = []): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.ethQuery[method](...args, (error: Error, result: any) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(result);
+      });
+    });
+  }
 
   // private _setupSwapsLivenessFetching () {}
 
@@ -107,6 +122,20 @@ export default class SwapsController extends BaseController<SwapsConfig, SwapsSt
       swapsFeatureIsLive: false,
     };
     this.initialize();
+  }
+
+  /**
+   * Extension point called if and when this controller is composed
+   * with other controllers using a ComposableController
+   */
+  onComposed() {
+    super.onComposed();
+    const network = this.context.NetworkController as NetworkController;
+    const onProviderUpdate = () => {
+      this.ethQuery = network.provider ? new EthQuery(network.provider) : /* istanbul ignore next */ null;
+    };
+    onProviderUpdate();
+    network.subscribe(onProviderUpdate);
   }
 
   setSwapsTokens (newTokens: null | SwapsTokenObject[]) {
