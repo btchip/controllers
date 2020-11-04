@@ -297,7 +297,7 @@ export async function fetchTokenPrice(address: string): Promise<string> {
 //   return values[upperIndex].plus(values[upperIndex - 1]).dividedBy(2)
 // }
 
-export function calculateGasEstimateWithRefund(maxGas = MAX_GAS_LIMIT, estimatedRefund = 0, estimatedGas = 0): BN {
+export function calculateGasEstimateWithRefund(maxGas = MAX_GAS_LIMIT, estimatedRefund = 0, estimatedGas = 0): BigNumber {
   const maxGasMinusRefund = new BigNumber(maxGas, 10).minus(estimatedRefund);
   const estimatedGasBN = new BigNumber(estimatedGas);
   const gasEstimateWithRefund = maxGasMinusRefund.lt(estimatedGasBN) ? maxGasMinusRefund : estimatedGasBN;
@@ -327,5 +327,5 @@ export function getMedian(values: BigNumber[]) {
   }
   // return mean of middle two values
   const upperIndex = sorted.length / 2;
-  return sorted[upperIndex].plus(sorted[upperIndex - 1]).divn(2);
+  return sorted[upperIndex].plus(sorted[upperIndex - 1]).div(2);
 }
