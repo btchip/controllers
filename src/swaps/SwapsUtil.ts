@@ -252,52 +252,11 @@ export async function fetchTokenPrice(address: string): Promise<string> {
 //   approvalTxMeta,
 // ) {}
 
-// export function formatSwapsValueForDisplay(destinationAmount) {}
-
-// function calculateGasEstimateWithRefund(
-//   maxGas = MAX_GAS_LIMIT,
-//   estimatedRefund = 0,
-//   estimatedGas = 0,
-// ) {
-//   const maxGasMinusRefund = new BigNumber(maxGas, 10).minus(estimatedRefund, 10)
-
-//   const gasEstimateWithRefund = maxGasMinusRefund.lt(estimatedGas, 16)
-//     ? maxGasMinusRefund.toString(16)
-//     : estimatedGas
-
-//   return gasEstimateWithRefund
-// }
-
-// /**
-//  * Calculates the median of a sample of BigNumber values.
-//  *
-//  * @param {import('bignumber.js').BigNumber[]} values - A sample of BigNumber
-//  * values. The array will be sorted in place.
-//  * @returns {import('bignumber.js').BigNumber} The median of the sample.
-//  */
-// export function getMedian(values) {
-//   if (!Array.isArray(values) || values.length === 0) {
-//     throw new Error('Expected non-empty array param.')
-//   }
-
-//   values.sort((a, b) => {
-//     if (a.equals(b)) {
-//       return 0
-//     }
-//     return a.lessThan(b) ? -1 : 1
-//   })
-
-//   if (values.length % 2 === 1) {
-//     // return middle value
-//     return values[(values.length - 1) / 2]
-//   }
-
-//   // return mean of middle two values
-//   const upperIndex = values.length / 2
-//   return values[upperIndex].plus(values[upperIndex - 1]).dividedBy(2)
-// }
-
-export function calculateGasEstimateWithRefund(maxGas = MAX_GAS_LIMIT, estimatedRefund = 0, estimatedGas = 0): BigNumber {
+export function calculateGasEstimateWithRefund(
+  maxGas = MAX_GAS_LIMIT,
+  estimatedRefund = 0,
+  estimatedGas = 0,
+): BigNumber {
   const maxGasMinusRefund = new BigNumber(maxGas, 10).minus(estimatedRefund);
   const estimatedGasBN = new BigNumber(estimatedGas);
   const gasEstimateWithRefund = maxGasMinusRefund.lt(estimatedGasBN) ? maxGasMinusRefund : estimatedGasBN;
@@ -307,8 +266,8 @@ export function calculateGasEstimateWithRefund(maxGas = MAX_GAS_LIMIT, estimated
 /**
  * Calculates the median of a sample of BigNumber values.
  *
- * @param {BN[]} values - A sample of BigNumber values.
- * @returns {BN} The median of the sample.
+ * @param {BigNumber[]} values - A sample of BigNumber values.
+ * @returns {BigNumber} The median of the sample.
  */
 export function getMedian(values: BigNumber[]) {
   if (!Array.isArray(values) || values.length === 0) {
